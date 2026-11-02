@@ -58,7 +58,6 @@ public Q_SLOTS: // METHODS
     bool setCurrentDesktop(int desktop);
     QString supportInformation();
     QString activeOutputName();
-    bool resizeVirtualOutput(const QString &name, int width, int height);
     Q_NOREPLY void showDebugConsole();
 
     /**

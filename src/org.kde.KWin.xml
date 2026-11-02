@@ -24,12 +24,6 @@
     <method name="activeOutputName">
         <arg type="s" direction="out"/>
     </method>
-    <method name="resizeVirtualOutput">
-        <arg name="name" type="s" direction="in"/>
-        <arg name="width" type="i" direction="in"/>
-        <arg name="height" type="i" direction="in"/>
-        <arg type="b" direction="out"/>
-    </method>
     <method name="showDebugConsole"/>
     <method name="replace"/>
     <method name="queryWindowInfo">
