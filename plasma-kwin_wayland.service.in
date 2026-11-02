@@ -3,6 +3,6 @@ Description=KDE Wayland Compositor
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/kwin_wayland_wrapper --xwayland $KWIN_WAYLAND_EXTRA_ARGS
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/kwin_wayland_wrapper --xwayland
 BusName=org.kde.KWinWrapper
 Slice=session.slice

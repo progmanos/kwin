@@ -528,8 +528,14 @@ int main(int argc, char *argv[])
             backendType = BackendType::X11;
 #endif
         } else {
-            qInfo("No backend specified, automatically choosing drm");
-            backendType = BackendType::Kms;
+            const QString seat = qEnvironmentVariable("XDG_SEAT");
+            if (seat.startsWith(QLatin1String("seat_remote")) || qEnvironmentVariableIsSet("PLASMALOGIN_IS_REMOTE")) {
+                qInfo("Automatically choosing Virtual backend for remote seat: %s", qPrintable(seat));
+                backendType = BackendType::Virtual;
+            } else {
+                qInfo("No backend specified, automatically choosing drm");
+                backendType = BackendType::Kms;
+            }
         }
     }
 
