@@ -16,6 +16,13 @@
 #include "core/renderloop.h"
 #include "utils/vsyncsource.h"
 
+namespace
+{
+
+inline constexpr uint32_t DefaultRefreshRateMilliHz = 60000;
+
+}
+
 namespace KWin
 {
 
@@ -146,10 +153,20 @@ bool VirtualOutput::canResize() const
 
 void VirtualOutput::resize(const QSize &size)
 {
-    auto mode = std::make_shared<OutputMode>(OutputModeline(size, 60000, OutputModeline::Flag::Preferred));
+    if (!size.isValid() || size.isEmpty() || (m_state.currentMode && size == m_state.currentMode->size())) {
+        return;
+    }
+
+    const uint32_t refreshRate = m_state.currentMode ? m_state.currentMode->refreshRate() : DefaultRefreshRateMilliHz;
+    auto mode = std::make_shared<OutputMode>(OutputModeline(size, refreshRate, OutputModeline::Flag::Preferred));
     auto next = m_state;
     next.modes = {mode};
     next.currentMode = mode;
+    // Drop stale mode selections so an old mode can't be restored on the
+    // next configuration query, e.g. when the remote client of a
+    // screencast-driven virtual output resizes again.
+    next.desiredMode = OutputModeline();
+    next.customModes = {};
     setState(next);
     Q_EMIT m_backend->outputsQueried();
 }

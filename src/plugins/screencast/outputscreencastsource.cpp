@@ -35,6 +35,7 @@ OutputScreenCastSource::OutputScreenCastSource(LogicalOutput *output, std::optio
             Q_EMIT closed();
         }
     });
+    connect(m_output, &LogicalOutput::changed, this, &ScreenCastSource::frame);
 }
 
 OutputScreenCastSource::~OutputScreenCastSource()
@@ -178,10 +179,13 @@ bool OutputScreenCastSource::followsStreamSize()
 
 void OutputScreenCastSource::resize(const QSize &size)
 {
-    if (m_output->pixelSize() == size) {
+    // The stream size corresponds to the oriented pixel size of the output.
+    // Convert it back to a mode size before applying it.
+    const QSize modeSize = m_output->transform().inverted().map(size);
+    if (m_output->modeSize() == modeSize) {
         return;
     }
-    m_output->resize(size);
+    m_output->resize(modeSize);
 }
 
 } // namespace KWin

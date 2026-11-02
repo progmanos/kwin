@@ -15,7 +15,9 @@
 
 // kwin
 #include "compositor.h"
+#include "core/backendoutput.h"
 #include "core/output.h"
+#include "core/outputbackend.h"
 #include "core/renderbackend.h"
 #include "debug_console.h"
 #include "kwinadaptor.h"
@@ -32,6 +34,14 @@
 // Qt
 #include <QDBusConnection>
 #include <QOpenGLContext>
+
+namespace
+{
+
+using namespace Qt::StringLiterals;
+inline constexpr auto VirtualOutputPrefix = "Virtual-"_L1;
+
+}
 
 namespace KWin
 {
@@ -79,6 +89,40 @@ QString DBusInterface::supportInformation()
 QString DBusInterface::activeOutputName()
 {
     return Workspace::self()->activeOutput()->name();
+}
+
+bool DBusInterface::resizeVirtualOutput(const QString &name, int width, int height)
+{
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+
+    auto *backend = kwinApp()->outputBackend();
+    if (!backend) {
+        return false;
+    }
+
+    BackendOutput *output = backend->findOutput(name);
+    if (!output) {
+        const auto outputs = backend->outputs();
+        for (auto *o : outputs) {
+            if (o->name() == name || (VirtualOutputPrefix.toString() + name) == o->name()) {
+                output = o;
+                break;
+            }
+        }
+    }
+
+    if (!output && name.isEmpty() && !backend->outputs().isEmpty()) {
+        output = backend->outputs().front();
+    }
+
+    if (!output || !output->canResize()) {
+        return false;
+    }
+
+    output->resize(QSize(width, height));
+    return true;
 }
 
 int DBusInterface::currentDesktop()

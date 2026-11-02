@@ -480,9 +480,18 @@ OutputConfiguration OutputConfigurationStore::setupToConfig(Setup *setup, const 
                     qPrintable(state.edidIdentifier), effectiveMode->size().width(), effectiveMode->size().height(), effectiveMode->refreshRate());
         }
 
+        // Only keep the stored desired mode if it is still among the modes the
+        // output can actually use. Otherwise a stale desired mode (e.g. from
+        // before a dynamic resize of a virtual output) would be re-applied and
+        // stored indefinitely.
+        std::optional<OutputModeline> effectiveDesiredMode;
+        if (state.mode && effectiveMode && *effectiveMode == *state.mode) {
+            effectiveDesiredMode = *state.mode;
+        }
+
         *ret.changeSet(output) = OutputChangeSet{
             .currentMode = effectiveMode,
-            .desiredMode = state.mode,
+            .desiredMode = effectiveDesiredMode,
             .customModes = state.customModes,
             .enabled = setupState.enabled,
             .pos = setupState.position,

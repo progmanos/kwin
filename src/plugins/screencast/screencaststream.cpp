@@ -37,6 +37,13 @@
 #include <spa/buffer/meta.h>
 #include <spa/pod/dynamic.h>
 
+namespace
+{
+
+inline constexpr size_t FormatBufferSize = 2048;
+
+}
+
 namespace KWin
 {
 
@@ -510,6 +517,8 @@ void ScreenCastStream::scheduleRecord(Contents contents)
 {
     Q_ASSERT(!m_closed);
 
+    updateStreamSize(m_source->textureSize());
+
     const char *error = "";
     auto state = pw_stream_get_state(m_pwStream, &error);
     if (state != PW_STREAM_STATE_STREAMING) {
@@ -676,9 +685,7 @@ void ScreenCastStream::record(std::chrono::nanoseconds timestamp, Contents conte
 
     pw_stream_queue_buffer(m_pwStream, pwBuffer);
 
-    if (!m_source->followsStreamSize()) {
-        updateStreamSize(m_source->textureSize());
-    }
+    updateStreamSize(m_source->textureSize());
 }
 
 void ScreenCastStream::bumpBufferAge(ScreenCastBuffer *renderedBuffer)
@@ -699,7 +706,11 @@ void ScreenCastStream::updateStreamSize(const QSize &resolution)
     }
     m_resolution = resolution;
 
-    char buffer[2048];
+    if (!m_pwStream) {
+        return;
+    }
+
+    char buffer[FormatBufferSize];
     auto params = buildFormats(false, buffer);
     pw_stream_update_params(m_pwStream, params.data(), params.count());
 }
