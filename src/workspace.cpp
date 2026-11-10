@@ -2530,6 +2530,7 @@ void Workspace::rearrange(const QHash<Window *, LogicalOutput *> &oldOutputs)
             }
         }
 
+        m_placementTracker->updateCurrentLayout();
         m_inRearrange = false;
     }
 }

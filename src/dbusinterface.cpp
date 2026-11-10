@@ -19,6 +19,7 @@
 #include "core/output.h"
 #include "core/outputbackend.h"
 #include "core/renderbackend.h"
+#include "core/session.h"
 #include "debug_console.h"
 #include "kwinadaptor.h"
 #include "main.h"
@@ -226,6 +227,14 @@ void DBusInterface::showDesktop(bool show)
 void DBusInterface::onShowingDesktopChanged(bool show, bool /*animated*/)
 {
     Q_EMIT showingDesktopChanged(show);
+}
+
+bool DBusInterface::takeOverSession(const QString &sessionId)
+{
+    if (!kwinApp()->session()) {
+        return false;
+    }
+    return kwinApp()->session()->takeOverSession(sessionId);
 }
 
 CompositorDBusInterface::CompositorDBusInterface(Compositor *parent)

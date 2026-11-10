@@ -29,6 +29,7 @@ public:
     void closeRestricted(int fileDescriptor) override;
     void switchTo(uint terminal) override;
     std::shared_ptr<FileDescriptor> delaySleep(const QString &reason) override;
+    bool takeOverSession(const QString &sessionId) override;
 
 private Q_SLOTS:
     void handleResumeDevice(uint major, uint minor, QDBusUnixFileDescriptor fileDescriptor);

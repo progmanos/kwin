@@ -78,7 +78,24 @@ bool Context::initialize()
     }
 #endif
 
-    return libinput_udev_assign_seat(m_libinput, m_session->seat().toUtf8().constData()) == 0;
+    if (m_session->seat().isEmpty()) {
+        return true;
+    }
+
+    return assignSeat(m_session->seat());
+}
+
+bool Context::assignSeat(const QString &seat)
+{
+    if (!isValid() || m_seatAssigned || seat.isEmpty()) {
+        return false;
+    }
+    if (libinput_udev_assign_seat(m_libinput, seat.toUtf8().constData()) != 0) {
+        return false;
+    }
+    m_seatAssigned = true;
+    m_suspended = false;
+    return true;
 }
 
 Session *Context::session() const
@@ -189,7 +206,7 @@ std::unique_ptr<Event> Context::event()
 
 void Context::suspend()
 {
-    if (m_suspended) {
+    if (!m_seatAssigned || m_suspended) {
         return;
     }
     libinput_suspend(m_libinput);
@@ -198,7 +215,7 @@ void Context::suspend()
 
 void Context::resume()
 {
-    if (!m_suspended) {
+    if (!m_seatAssigned || !m_suspended) {
         return;
     }
     libinput_resume(m_libinput);

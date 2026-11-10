@@ -363,7 +363,8 @@ bool WaylandServer::init()
     new SecurityContextManagerV1Interface(m_display, m_display);
     new FractionalScaleManagerV1Interface(m_display, m_display);
     m_display->createShm();
-    m_seat = new SeatInterface(m_display, kwinApp()->session()->seat(), m_display);
+    const QString sessionSeat = kwinApp()->session()->seat();
+    m_seat = new SeatInterface(m_display, sessionSeat.isEmpty() ? QStringLiteral("seat0") : sessionSeat, m_display);
     new PointerGesturesV1Interface(m_display, m_display);
     new PointerConstraintsV1Interface(m_display, m_display);
     new RelativePointerManagerV1Interface(m_display, m_display);

@@ -59,9 +59,8 @@ static const QString s_seatInterface = QStringLiteral("org.freedesktop.login1.Se
 static const QString s_managerInterface = QStringLiteral("org.freedesktop.login1.Manager");
 static const QString s_managerPath = QStringLiteral("/org/freedesktop/login1");
 
-static QString findProcessSessionPath()
+static QString findSessionPath(const QString &sessionId)
 {
-    const QString sessionId = qEnvironmentVariable("XDG_SESSION_ID", QStringLiteral("auto"));
     QDBusMessage message = QDBusMessage::createMethodCall(s_serviceName, s_managerPath,
                                                           s_managerInterface,
                                                           QStringLiteral("GetSession"));
@@ -72,6 +71,12 @@ static QString findProcessSessionPath()
     }
 
     return reply.arguments().constFirst().value<QDBusObjectPath>().path();
+}
+
+static QString findProcessSessionPath()
+{
+    const QString sessionId = qEnvironmentVariable("XDG_SESSION_ID", QStringLiteral("auto"));
+    return findSessionPath(sessionId);
 }
 
 static bool takeControl(const QString &sessionPath)
@@ -227,6 +232,66 @@ std::shared_ptr<FileDescriptor> LogindSession::delaySleep(const QString &reason)
     return ret;
 }
 
+bool LogindSession::takeOverSession(const QString &sessionId)
+{
+    if (sessionId.isEmpty()) {
+        return false;
+    }
+
+    const QString newSessionPath = findSessionPath(sessionId);
+    if (newSessionPath.isEmpty()) {
+        qCWarning(KWIN_CORE, "Could not find logind session path for session %s", qPrintable(sessionId));
+        return false;
+    }
+    if (newSessionPath == m_sessionPath) {
+        return true;
+    }
+
+    if (!takeControl(newSessionPath)) {
+        qCWarning(KWIN_CORE, "Failed to take control of session %s (%s)",
+                  qPrintable(sessionId), qPrintable(newSessionPath));
+        return false;
+    }
+
+    QDBusConnection::systemBus().disconnect(s_serviceName, s_managerPath, s_managerInterface,
+                                            QStringLiteral("PrepareForSleep"),
+                                            this,
+                                            SLOT(handlePrepareForSleep(bool)));
+    QDBusConnection::systemBus().disconnect(s_serviceName, m_sessionPath, s_sessionInterface,
+                                            QStringLiteral("PauseDevice"),
+                                            this,
+                                            SLOT(handlePauseDevice(uint, uint, QString)));
+    QDBusConnection::systemBus().disconnect(s_serviceName, m_sessionPath, s_sessionInterface,
+                                            QStringLiteral("ResumeDevice"),
+                                            this,
+                                            SLOT(handleResumeDevice(uint, uint, QDBusUnixFileDescriptor)));
+    QDBusConnection::systemBus().disconnect(s_serviceName, m_sessionPath, s_propertiesInterface,
+                                            QStringLiteral("PropertiesChanged"),
+                                            this,
+                                            SLOT(handlePropertiesChanged(QString, QVariantMap)));
+    releaseControl(m_sessionPath);
+
+    const QString oldSeatId = m_seatId;
+    const bool oldActive = m_isActive;
+    m_sessionPath = newSessionPath;
+
+    if (!initialize()) {
+        qCWarning(KWIN_CORE, "Failed to initialize taken-over session %s", qPrintable(newSessionPath));
+        return false;
+    }
+
+    qCInfo(KWIN_CORE, "Took over logind session %s on seat %s (vt %u, active=%d)",
+           qPrintable(sessionId), qPrintable(m_seatId), m_terminal, m_isActive);
+
+    if (m_seatId != oldSeatId) {
+        Q_EMIT seatChanged(m_seatId);
+    }
+    if (m_isActive != oldActive) {
+        Q_EMIT activeChanged(m_isActive);
+    }
+    return true;
+}
+
 LogindSession::LogindSession(const QString &sessionPath)
     : m_sessionPath(sessionPath)
 {
@@ -337,6 +402,7 @@ void LogindSession::handleResumeDevice(uint major, uint minor, QDBusUnixFileDesc
 {
     // We don't care about the file descriptor as the libinput backend will re-open input devices
     // and the drm file descriptors remain valid after pausing gpus.
+    updateActive(true);
 
     Q_EMIT deviceResumed(makedev(major, minor));
 }

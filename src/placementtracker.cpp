@@ -55,6 +55,12 @@ void PlacementTracker::add(Window *window)
     connect(window, &Window::fullscreenGeometryRestoreChanged, this, [this, window]() {
         saveFullscreenGeometryRestore(window);
     });
+    connect(window, &Window::interactiveMoveResizeFinished, this, [this, window]() {
+        if (m_inhibitCount == 0 && !m_workspace->inRearrange()) {
+            invalidateOtherKeys(window);
+            saveGeometry(window);
+        }
+    });
     WindowData data = dataForWindow(window);
     m_data[m_currentKey][window] = data;
     m_savedWindows.push_back(window);
@@ -105,12 +111,37 @@ void PlacementTracker::init(const QString &key)
     m_currentKey = key;
 }
 
+void PlacementTracker::updateCurrentLayout()
+{
+    if (m_inhibitCount > 0 || m_currentKey.isEmpty()) {
+        return;
+    }
+    auto &dataMap = m_data[m_currentKey];
+    for (Window *window : std::as_const(m_savedWindows)) {
+        dataMap[window] = dataForWindow(window);
+    }
+}
+
+void PlacementTracker::invalidateOtherKeys(Window *window)
+{
+    for (auto it = m_data.begin(); it != m_data.end(); ++it) {
+        if (it.key() != m_currentKey) {
+            it.value().remove(window);
+        }
+    }
+}
+
 void PlacementTracker::saveGeometry(Window *window)
 {
     if (m_inhibitCount == 0) {
         auto &data = m_data[m_currentKey][window];
-        data.geometry = window->moveResizeGeometry();
-        data.outputUuid = window->moveResizeOutput()->uuid();
+        const RectF newGeometry = window->moveResizeGeometry();
+        const QString newOutputUuid = window->moveResizeOutput()->uuid();
+        if (!m_workspace->inRearrange() && (data.geometry.topLeft() != newGeometry.topLeft() || data.outputUuid != newOutputUuid)) {
+            invalidateOtherKeys(window);
+        }
+        data.geometry = newGeometry;
+        data.outputUuid = newOutputUuid;
     }
 }
 
@@ -118,6 +149,9 @@ void PlacementTracker::saveMaximize(Window *window)
 {
     if (m_inhibitCount == 0) {
         auto &data = m_data[m_currentKey][window];
+        if (!m_workspace->inRearrange() && data.maximize != window->maximizeMode()) {
+            invalidateOtherKeys(window);
+        }
         data.maximize = window->maximizeMode();
     }
 }
@@ -126,6 +160,9 @@ void PlacementTracker::saveQuickTile(Window *window)
 {
     if (m_inhibitCount == 0) {
         auto &data = m_data[m_currentKey][window];
+        if (!m_workspace->inRearrange() && data.quickTile != window->quickTileMode()) {
+            invalidateOtherKeys(window);
+        }
         data.quickTile = window->quickTileMode();
     }
 }
@@ -134,6 +171,9 @@ void PlacementTracker::saveFullscreen(Window *window)
 {
     if (m_inhibitCount == 0) {
         auto &data = m_data[m_currentKey][window];
+        if (!m_workspace->inRearrange() && data.fullscreen != window->isFullScreen()) {
+            invalidateOtherKeys(window);
+        }
         data.fullscreen = window->isFullScreen();
     }
 }

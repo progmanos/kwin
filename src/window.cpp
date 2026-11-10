@@ -3920,6 +3920,9 @@ void Window::doSetHiddenByShowDesktop()
 
 RectF Window::moveToArea(const RectF &geometry, const RectF &oldArea, const RectF &newArea)
 {
+    if (geometry.isEmpty() || oldArea.isEmpty() || newArea.isEmpty()) {
+        return geometry;
+    }
     RectF ret = geometry;
     // move the window to have the same relative position to the center of the screen
     // (i.e. one near the middle of the right edge will also end up near the middle of the right edge)
@@ -4027,6 +4030,7 @@ void Window::checkWorkspacePosition(RectF oldGeometry, LogicalOutput *oldOutput)
 
     RectF oldScreenArea;
     RectF screenArea;
+    bool outputOrSizeChanged = true;
     if (workspace()->inRearrange()) {
         // check if the window is on an about to be destroyed output
         LogicalOutput *newOutput = oldOutput;
@@ -4038,8 +4042,14 @@ void Window::checkWorkspacePosition(RectF oldGeometry, LogicalOutput *oldOutput)
         if (oldScreenArea.isNull()) {
             oldScreenArea = newOutput->geometry();
         }
-        screenArea = newOutput->geometry();
-        newGeom.translate(screenArea.topLeft() - oldScreenArea.topLeft());
+        outputOrSizeChanged = (oldOutput != newOutput || oldScreenArea != newOutput->geometry());
+        screenArea = workspace()->clientArea(MaximizeArea, this, newOutput);
+        if (outputOrSizeChanged) {
+            newGeom = moveToArea(newGeom, oldScreenArea, screenArea);
+            newGeom = keepInArea(newGeom, screenArea, false);
+        } else if (oldScreenArea.contains(newGeom)) {
+            newGeom = keepInArea(newGeom, screenArea, false);
+        }
     } else {
         oldScreenArea = workspace()->clientArea(ScreenArea, workspace()->outputAt(oldGeometry.center()));
         screenArea = workspace()->clientArea(ScreenArea, this, newGeom.center());
@@ -4047,8 +4057,17 @@ void Window::checkWorkspacePosition(RectF oldGeometry, LogicalOutput *oldOutput)
 
     if (isRequestedFullScreen() || requestedMaximizeMode() != MaximizeRestore || requestedQuickTileMode() != QuickTileMode(QuickTileFlag::None)) {
         moveResize(ensureSpecialStateGeometry(newGeom));
-        setFullscreenGeometryRestore(moveToArea(m_fullscreenGeometryRestore, oldScreenArea, screenArea));
-        setGeometryRestore(moveToArea(m_maximizeGeometryRestore, oldScreenArea, screenArea));
+        if (outputOrSizeChanged) {
+            setFullscreenGeometryRestore(moveToArea(m_fullscreenGeometryRestore, oldScreenArea, screenArea));
+            setGeometryRestore(moveToArea(m_maximizeGeometryRestore, oldScreenArea, screenArea));
+        } else {
+            if (!m_fullscreenGeometryRestore.isEmpty() && oldScreenArea.contains(m_fullscreenGeometryRestore)) {
+                setFullscreenGeometryRestore(keepInArea(m_fullscreenGeometryRestore, screenArea, false));
+            }
+            if (!m_maximizeGeometryRestore.isEmpty() && oldScreenArea.contains(m_maximizeGeometryRestore)) {
+                setGeometryRestore(keepInArea(m_maximizeGeometryRestore, screenArea, false));
+            }
+        }
         return;
     }
 

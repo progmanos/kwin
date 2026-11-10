@@ -34,6 +34,7 @@ public:
 
     void restore(const QString &key);
     void init(const QString &key);
+    void updateCurrentLayout();
 
     void inhibit();
     void uninhibit();
@@ -56,6 +57,7 @@ private:
     void saveFullscreen(Window *window);
     void saveMaximizeGeometryRestore(Window *window);
     void saveFullscreenGeometryRestore(Window *window);
+    void invalidateOtherKeys(Window *window);
     WindowData dataForWindow(Window *window) const;
 
     QList<Window *> m_savedWindows;

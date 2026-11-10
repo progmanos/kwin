@@ -174,9 +174,6 @@ void DrmVirtualOutput::resize(const QSize &size)
     next.desiredMode = OutputModeline();
     next.customModes = {};
     setState(next);
-    // rebuild the rendering surface for the new mode instead of waiting for
-    // the next frame to notice the size mismatch
-    recreateLayer();
     Q_EMIT m_backend->outputsQueried();
 }
 

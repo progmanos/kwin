@@ -87,6 +87,7 @@ public Q_SLOTS: // METHODS
     QVariantMap getWindowInfo(const QString &uuid);
 
     Q_NOREPLY void showDesktop(bool show);
+    bool takeOverSession(const QString &sessionId);
 
 Q_SIGNALS:
     void showingDesktopChanged(bool showing);

@@ -8,6 +8,7 @@
 */
 #pragma once
 
+#include <QString>
 #include <libinput.h>
 #include <memory>
 #include <vector>
@@ -31,6 +32,7 @@ public:
     Context(Session *session, std::unique_ptr<Udev> &&udev);
     ~Context();
     bool initialize();
+    bool assignSeat(const QString &seat);
     bool isValid() const
     {
         return m_libinput != nullptr;
@@ -71,6 +73,7 @@ private:
     Session *m_session;
     struct libinput *m_libinput;
     bool m_suspended;
+    bool m_seatAssigned = false;
     std::unique_ptr<Udev> m_udev;
     std::vector<FileDescriptor> m_nonRestrictedFds;
 };

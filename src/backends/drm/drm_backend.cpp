@@ -155,6 +155,49 @@ bool DrmBackend::initialize()
             }
         }
     });
+    connect(m_session, &Session::seatChanged, this, [this](const QString &seat) {
+        if (seat.isEmpty()) {
+            return;
+        }
+        bool added = false;
+        if (!m_explicitGpus.isEmpty()) {
+            for (const QString &fileName : m_explicitGpus) {
+                if (addGpu(QFileInfo(fileName).canonicalFilePath())) {
+                    added = true;
+                }
+            }
+        } else {
+            const auto devices = m_udev->listGPUs();
+            for (const auto &device : devices) {
+                if (device->seat() == seat && !findGpu(device->devNum())) {
+                    if (addGpu(device->devNode())) {
+                        added = true;
+                    }
+                }
+            }
+        }
+        if (added) {
+            updateOutputs();
+        }
+    });
+    connect(m_session, &Session::activeChanged, this, [this](bool active) {
+        if (!active) {
+            return;
+        }
+        bool added = false;
+        const auto paths = m_gpuAuthHandles.keys();
+        for (const QString &path : paths) {
+            const bool alreadyAdded = std::ranges::any_of(m_gpus, [&path](const auto &gpu) {
+                return gpu->drmDevice()->path() == path;
+            });
+            if (!alreadyAdded && addGpu(path)) {
+                added = true;
+            }
+        }
+        if (added) {
+            updateOutputs();
+        }
+    });
 
     if (!m_explicitGpus.isEmpty()) {
         for (const QString &fileName : m_explicitGpus) {
@@ -247,12 +290,16 @@ DrmGpu *DrmBackend::addGpu(const QString &fileName)
         return nullptr;
     }
 
+    m_gpuAuthHandles.insert(fileName, authHandle);
+    if (!m_session->isActive()) {
+        qCDebug(KWIN_DRM) << "Deferring GPU" << fileName << "initialization until session is active";
+        return nullptr;
+    }
+
     auto drmDevice = DrmDevice::openWithAuthentication(fileName, authHandle->fd());
     if (!drmDevice) {
         return nullptr;
     }
-
-    m_gpuAuthHandles.insert(fileName, authHandle);
 
     m_gpus.push_back(std::make_unique<DrmGpu>(this, authHandle->fd(), std::move(drmDevice)));
     auto gpu = m_gpus.back().get();

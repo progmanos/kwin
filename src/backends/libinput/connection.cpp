@@ -146,12 +146,21 @@ void Connection::doSetup()
     m_notifier = std::make_unique<QSocketNotifier>(m_input->fileDescriptor(), QSocketNotifier::Read);
     connect(m_notifier.get(), &QSocketNotifier::activated, this, &Connection::handleEvent);
 
+    connect(m_input->session(), &Session::seatChanged, this, [this](const QString &seat) {
+        if (!seat.isEmpty() && m_input->assignSeat(seat)) {
+            if (!m_input->session()->isActive()) {
+                m_input->suspend();
+            }
+            handleEvent();
+        }
+    });
     connect(m_input->session(), &Session::activeChanged, this, [this](bool active) {
         if (active) {
             if (!m_input->isSuspended()) {
                 return;
             }
             m_input->resume();
+            handleEvent();
         } else {
             deactivate();
         }

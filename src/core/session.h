@@ -94,6 +94,12 @@ public:
 
     virtual std::shared_ptr<FileDescriptor> delaySleep(const QString &reason) = 0;
 
+    virtual bool takeOverSession(const QString &sessionId)
+    {
+        Q_UNUSED(sessionId)
+        return false;
+    }
+
 Q_SIGNALS:
     /**
      * This signal is emitted when the session is resuming from suspend.
@@ -107,6 +113,11 @@ Q_SIGNALS:
      * This signal is emitted when the active state of the session has changed.
      */
     void activeChanged(bool active);
+
+    /**
+     * This signal is emitted when the seat assigned to the session has changed.
+     */
+    void seatChanged(const QString &seat);
 
     /**
      * This signal is emitted when the specified device can be used again.
